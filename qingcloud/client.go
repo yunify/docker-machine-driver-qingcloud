@@ -5,30 +5,23 @@ import (
 	"fmt"
 	"github.com/docker/machine/libmachine/log"
 	"github.com/docker/machine/libmachine/mcnutils"
+	"github.com/yunify/qingcloud-sdk-go/config"
 	"github.com/yunify/qingcloud-sdk-go/service/instance"
 	"github.com/yunify/qingcloud-sdk-go/service/job"
 	"time"
 )
 
 type Client interface {
-	RunInstance(d *Driver) (string, error)
-	//GetInstanceState(d *Driver) (string, error)
-	//StartInstance(d *Driver) error
-	//StopInstance(d *Driver) error
-	//RestartInstance(d *Driver) error
-	//DeleteInstance(d *Driver) error
-	//WaitForInstanceStatus(d *Driver, status string) error
-	//WaitForInstanceNetwork(d *Driver)
-	//GetInstanceIPAddresses(d *Driver) ([]IPAddress, error)
-	//GetPublicKey(keyPairName string) ([]byte, error)
-	//CreateKeyPair(d *Driver, name string, publicKey string) error
-	//DeleteKeyPair(d *Driver, name string) error
-	//GetNetworkID(d *Driver) (string, error)
-	//GetImageID(d *Driver) (string, error)
+	RunInstance(arg *RunInstanceArg) (*instance.Instance, error)
+	DescribeInstance(instanceID string) (*instance.Instance, error)
+	StartInstance(instanceID string) error
+	StopInstance(instanceID string, force bool) error
+	RestartInstance(instanceID string) error
+	TerminateInstance(instanceID string) error
+	WaitInstanceStatus(instanceID string, status string) error
 }
 
-func NewClient(d *Driver) (Client, error) {
-	config := d.Config()
+func NewClient(config *config.Config, zone string) (Client, error) {
 	instanceService, err := instance.Init(config)
 	if err != nil {
 		return nil, err
@@ -41,6 +34,7 @@ func NewClient(d *Driver) (Client, error) {
 		instanceService: instanceService,
 		jobService:      jobService,
 		opTimeout:       defaultOpTimeout,
+		zone:            zone,
 	}
 	return c, nil
 }
@@ -49,46 +43,114 @@ type client struct {
 	instanceService *instance.InstanceService
 	jobService      *job.JobService
 	opTimeout       int
+	zone            string
 }
 
-func (c *client) RunInstance(d *Driver) (string, error) {
+type RunInstanceArg struct {
+	CPU          int
+	Memory       int
+	ImageID      string
+	LoginKeyPair string
+	VxNet        string
+}
+
+func (c *client) RunInstance(arg *RunInstanceArg) (*instance.Instance, error) {
 	input := &instance.RunInstancesInput{
-		CPU:          d.CPU,
+		CPU:          arg.CPU,
 		Count:        1,
-		ImageID:      d.Image,
-		Memory:       d.Memory,
-		LoginKeyPair: d.SSHKeyID,
+		ImageID:      arg.ImageID,
+		Memory:       arg.Memory,
+		LoginKeyPair: arg.LoginKeyPair,
 		LoginMode:    "keypair",
 		//SecurityGroup string   `json:"security_group" name:"security_group" location:"requestParams"`
-		VxNets: []string{d.Vxnet},
+		VxNets: []string{arg.VxNet},
 		//Volumes       []string `json:"volumes" name:"volumes" location:"requestParams"`
-		Zone: d.Zone,
+		Zone: c.zone,
 	}
 
 	output, err := c.instanceService.RunInstances(input)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if len(output.Instances) == 0 {
-		return "", errors.New("create instance response error.")
+		return nil, errors.New("create instance response error.")
 	}
 	jobID := output.JobID
-	jobErr := c.WaitJob(jobID)
+	jobErr := c.waitJob(jobID)
 	if jobErr != nil {
-		return "", jobErr
+		return nil, jobErr
 	}
 	instanceID := output.Instances[0]
-	waitErr := c.WaitInstanceNetwork(instanceID)
+	ins, waitErr := c.waitInstanceNetwork(instanceID)
 	if waitErr != nil {
-		return "", waitErr
+		return nil, waitErr
 	}
-	return instanceID, nil
+	return ins, nil
+}
+func (c *client) DescribeInstance(instanceID string) (*instance.Instance, error) {
+	input := &instance.DescribeInstancesInput{Instances: []string{instanceID}, Zone: c.zone}
+	output, err := c.instanceService.DescribeInstances(input)
+	if err != nil {
+		return nil, err
+	}
+	if len(output.InstanceSet) == 0 {
+		return nil, fmt.Errorf("instance with id [%s] not exist.", instanceID)
+	}
+	return output.InstanceSet[0], nil
 }
 
-func (c *client) WaitJob(jobID string) error {
-	log.Infof("Waiting for Job [%s] finished", jobID)
+func (c *client) StartInstance(instanceID string) error {
+	input := &instance.StartInstancesInput{Instances: []string{instanceID}, Zone: c.zone}
+	output, err := c.instanceService.StartInstances(input)
+	if err != nil {
+		return err
+	}
+	jobID := output.JobID
+	return c.waitJob(jobID)
+}
+
+func (c *client) StopInstance(instanceID string, force bool) error {
+	var forceParam int
+	if force {
+		forceParam = 1
+	} else {
+		forceParam = 0
+	}
+	input := &instance.StopInstancesInput{Instances: []string{instanceID}, Force: forceParam, Zone: c.zone}
+	output, err := c.instanceService.StopInstances(input)
+	if err != nil {
+		return err
+	}
+	jobID := output.JobID
+	return c.waitJob(jobID)
+}
+
+func (c *client) RestartInstance(instanceID string) error {
+	input := &instance.RestartInstancesInput{Instances: []string{instanceID}, Zone: c.zone}
+	_, err := c.instanceService.RestartInstances(input)
+	if err != nil {
+		return err
+	}
+	//TODO wait jobid
+	//jobID := output.
+	//return c.WaitJob(jobID)
+	return nil
+}
+
+func (c *client) TerminateInstance(instanceID string) error {
+	input := &instance.TerminateInstancesInput{Instances: []string{instanceID}, Zone: c.zone}
+	output, err := c.instanceService.TerminateInstances(input)
+	if err != nil {
+		return err
+	}
+	jobID := output.JobID
+	return c.waitJob(jobID)
+}
+
+func (c *client) waitJob(jobID string) error {
+	log.Debugf("Waiting for Job [%s] finished", jobID)
 	return mcnutils.WaitForSpecificOrError(func() (bool, error) {
-		input := &job.DescribeJobsInput{Jobs: []string{jobID}}
+		input := &job.DescribeJobsInput{Jobs: []string{jobID}, Zone: c.zone}
 		output, err := c.jobService.DescribeJobs(input)
 		if err != nil {
 			return false, err
@@ -104,21 +166,37 @@ func (c *client) WaitJob(jobID string) error {
 	}, (c.opTimeout / 5), 5*time.Second)
 }
 
-func (c *client) WaitInstanceNetwork(instanceID string) error {
-	log.Infof("Waiting for IP address to be assigned to Instance [%s]", instanceID)
+func (c *client) WaitInstanceStatus(instanceID string, status string) error {
+	log.Debugf("Waiting for Instance [%s] status [%s] ", instanceID, status)
 	return mcnutils.WaitForSpecificOrError(func() (bool, error) {
-		input := &instance.DescribeInstancesInput{Instances: []string{instanceID}}
-		output, err := c.instanceService.DescribeInstances(input)
+		i, err := c.DescribeInstance(instanceID)
 		if err != nil {
 			return false, err
 		}
-		if len(output.InstanceSet) == 0 {
-			return false, errors.New("describe instance response error.")
+		if i.Status == status {
+			if i.TransitionStatus != "" {
+				//wait transition to finished
+				return false, nil
+			}
+			return true, nil
 		}
-		i := output.InstanceSet[0]
+		return false, nil
+	}, (c.opTimeout / 5), 5*time.Second)
+}
+
+func (c *client) waitInstanceNetwork(instanceID string) (*instance.Instance, error) {
+	log.Debugf("Waiting for IP address to be assigned to Instance [%s]", instanceID)
+	var ins *instance.Instance
+	err := mcnutils.WaitForSpecificOrError(func() (bool, error) {
+		i, err := c.DescribeInstance(instanceID)
+		if err != nil {
+			return false, err
+		}
 		if len(i.VxNets) == 0 || i.VxNets[0].PrivateIP == "" {
 			return false, nil
 		}
+		ins = i
 		return true, nil
 	}, (c.opTimeout / 5), 5*time.Second)
+	return ins, err
 }

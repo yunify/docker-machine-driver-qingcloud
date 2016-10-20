@@ -1,21 +1,23 @@
 package qingcloud
 
 import (
+	"fmt"
 	"github.com/docker/machine/libmachine/drivers"
 	"github.com/docker/machine/libmachine/log"
 	"github.com/docker/machine/libmachine/mcnflag"
 	"github.com/docker/machine/libmachine/state"
 	"github.com/yunify/qingcloud-sdk-go/config"
+	"github.com/yunify/qingcloud-sdk-go/service/instance"
 )
 
 const (
-	defaultSSHPort   = 22
-	defaultSSHUser   = "root"
 	defaultImage     = "trustysrvx64h"
 	defaultZone      = "pek3a"
 	defaultCPU       = 1
 	defaultMemory    = 1024
 	defaultOpTimeout = 180 //second
+	dockerPort       = 2376
+	swarmPort        = 3376
 )
 
 type Driver struct {
@@ -27,7 +29,9 @@ type Driver struct {
 	CPU             int
 	Memory          int
 	SSHKeyID        string
-	Vxnet           string
+	VxNet           string
+	InstanceID      string
+	client          Client
 }
 
 type SSHKeyPair struct {
@@ -87,6 +91,11 @@ func (d *Driver) Config() *config.Config {
 	return config
 }
 
+// PreCreateCheck allows for pre-create operations to make sure a driver is ready for creation
+func (d *Driver) PreCreateCheck() error {
+	return nil
+}
+
 func (d *Driver) Create() error {
 	log.Infof("Creating SSH key...")
 
@@ -100,18 +109,41 @@ func (d *Driver) Create() error {
 
 	log.Infof("Creating Qingcloud Instance...")
 
-	client, err := NewClient(d)
+	client := d.GetClient()
+	arg := &RunInstanceArg{
+		CPU:          d.CPU,
+		Memory:       d.Memory,
+		ImageID:      d.Image,
+		VxNet:        d.VxNet,
+		LoginKeyPair: d.SSHKeyID,
+	}
+	ins, err := client.RunInstance(arg)
 	if err != nil {
 		return err
 	}
-	instanceID, err := client.RunInstance(d)
-	if err != nil {
-		return err
-	}
+	d.InstanceID = ins.InstanceID
+	d.IPAddress = ins.VxNets[0].PrivateIP
+	d.MachineName = ins.InstanceID
+
 	log.Infof("Created Instance %s",
-		instanceID)
+		ins.InstanceID)
 
 	return nil
+}
+
+func (d *Driver) GetClient() Client {
+	if d.client == nil {
+		client, err := NewClient(d.Config(), d.Zone)
+		if err != nil {
+			panic(fmt.Sprintf("init client error: %s", err.Error()))
+		}
+		d.client = client
+	}
+	return d.client
+}
+
+func (d *Driver) getInstance() (*instance.Instance, error) {
+	return d.GetClient().DescribeInstance(d.InstanceID)
 }
 
 func (d *Driver) createSSHKey() (*SSHKeyPair, error) {
@@ -119,68 +151,64 @@ func (d *Driver) createSSHKey() (*SSHKeyPair, error) {
 	return nil, nil
 }
 
-func (d *Driver) GetIP() (string, error) {
-	return "", nil
-}
-
-// GetMachineName returns the name of the machine
-func (d *Driver) GetMachineName() string {
-	return ""
-}
-
-// GetSSHKeyPath returns key path for use with ssh
-func (d *Driver) GetSSHKeyPath() string {
-	return ""
-}
-
-// GetSSHPort returns port for use with ssh
-func (d *Driver) GetSSHPort() (int, error) {
-	return defaultSSHPort, nil
-}
-
-// GetSSHUsername returns username for use with ssh
-func (d *Driver) GetSSHUsername() string {
-	return defaultSSHUser
+func (d *Driver) publicSSHKeyPath() string {
+	return d.GetSSHKeyPath() + ".pub"
 }
 
 // GetURL returns a Docker compatible host URL for connecting to this host
 // e.g. tcp://1.2.3.4:2376
 func (d *Driver) GetURL() (string, error) {
-	return "", nil
+	ip, err := d.GetIP()
+	if err != nil {
+		return "", err
+	}
+	if ip == "" {
+		return "", nil
+	}
+	return fmt.Sprintf("tcp://%s:%d", ip, dockerPort), nil
 }
 
 // GetState returns the state that the host is in (running, stopped, etc)
 func (d *Driver) GetState() (state.State, error) {
-	return state.None, nil
+	i, err := d.getInstance()
+	if err != nil {
+		return state.None, err
+	}
+	switch i.Status {
+	case "pending":
+		return state.Starting, nil
+	case "running":
+		return state.Running, nil
+	case "stopped":
+		return state.Stopped, nil
+	case "suspended", "terminated", "ceased":
+		return state.Error, nil
+	}
+	return state.Error, nil
 }
 
 // Kill stops a host forcefully
 func (d *Driver) Kill() error {
-	return nil
-}
-
-// PreCreateCheck allows for pre-create operations to make sure a driver is ready for creation
-func (d *Driver) PreCreateCheck() error {
-	return nil
+	return d.GetClient().StopInstance(d.InstanceID, true)
 }
 
 // Remove a host
 func (d *Driver) Remove() error {
-	return nil
+	return d.GetClient().TerminateInstance(d.InstanceID)
 }
 
 // Restart a host. This may just call Stop(); Start() if the provider does not
 // have any special restart behaviour.
 func (d *Driver) Restart() error {
-	return nil
+	return d.GetClient().RestartInstance(d.InstanceID)
 }
 
 // Start a host
 func (d *Driver) Start() error {
-	return nil
+	return d.GetClient().StartInstance(d.InstanceID)
 }
 
 // Stop a host gracefully
 func (d *Driver) Stop() error {
-	return nil
+	return d.GetClient().StopInstance(d.InstanceID, false)
 }
