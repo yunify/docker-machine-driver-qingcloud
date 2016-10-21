@@ -59,10 +59,6 @@ func TestClient(t *testing.T) {
 	if stopErr != nil {
 		t.Fatal(stopErr)
 	}
-	waitErr := client.WaitInstanceStatus(instanceID, "stopped")
-	if waitErr != nil {
-		t.Error(waitErr)
-	}
 	i3, err := client.DescribeInstance(instanceID)
 	if err != nil {
 		t.Error(err)
@@ -76,10 +72,6 @@ func TestClient(t *testing.T) {
 	if startErr != nil {
 		t.Fatal(startErr)
 	}
-	waitErr = client.WaitInstanceStatus(instanceID, "running")
-	if waitErr != nil {
-		t.Error(waitErr)
-	}
 	i4, err := client.DescribeInstance(instanceID)
 	if err != nil {
 		t.Error(err)
@@ -92,10 +84,6 @@ func TestClient(t *testing.T) {
 	delErr := client.TerminateInstance(instanceID)
 	if delErr != nil {
 		t.Fatal(delErr)
-	}
-	waitErr = client.WaitInstanceStatus(instanceID, "terminated")
-	if waitErr != nil {
-		t.Error(waitErr)
 	}
 	i5, err := client.DescribeInstance(instanceID)
 	if err != nil {

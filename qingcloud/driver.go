@@ -5,13 +5,15 @@ import (
 	"github.com/docker/machine/libmachine/drivers"
 	"github.com/docker/machine/libmachine/log"
 	"github.com/docker/machine/libmachine/mcnflag"
+	"github.com/docker/machine/libmachine/mcnutils"
 	"github.com/docker/machine/libmachine/state"
 	"github.com/yunify/qingcloud-sdk-go/config"
 	"github.com/yunify/qingcloud-sdk-go/service/instance"
+	"time"
 )
 
 const (
-	defaultImage     = "trustysrvx64h"
+	defaultImage     = "xenialx64b" //"trustysrvx64h"
 	defaultZone      = "pek3a"
 	defaultCPU       = 1
 	defaultMemory    = 1024
@@ -28,7 +30,7 @@ type Driver struct {
 	Image           string
 	CPU             int
 	Memory          int
-	SSHKeyID        string
+	LoginKeyPair    string
 	VxNet           string
 	InstanceID      string
 	client          Client
@@ -45,15 +47,67 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 	return []mcnflag.Flag{
 		mcnflag.StringFlag{
 			EnvVar: "QINGCLOUD_ACCESS_KEY_ID",
-			Name:   "qy_access_key_id",
-			Usage:  "qingcloud access key id",
+			Name:   "qingcloud-access-key-id",
+			Usage:  "Qingcloud access key id",
 		},
 		mcnflag.StringFlag{
 			EnvVar: "QINGCLOUD_SECRET_ACCESS_KEY",
-			Name:   "qy_secret_access_key",
-			Usage:  "qingcloud secret access key",
+			Name:   "qingcloud-secret-access-key",
+			Usage:  "Qingcloud secret access key",
+		},
+		mcnflag.StringFlag{
+			EnvVar: "QINGCLOUD_ZONE",
+			Name:   "qingcloud-zone",
+			Usage:  "Qingcloud zone",
+			Value:  defaultZone,
+		},
+		mcnflag.StringFlag{
+			EnvVar: "QINGCLOUD_IMAGE",
+			Name:   "qingcloud-image",
+			Usage:  "Instance image ID",
+			Value:  defaultImage,
+		},
+		mcnflag.StringFlag{
+			EnvVar: "QINGCLOUD_VXNET_ID",
+			Name:   "qingcloud-vxnet-id",
+			Usage:  "Vxnet id",
+		},
+		mcnflag.StringFlag{
+			EnvVar: "QINGCLOUD_LOGIN_KEYPAIR",
+			Name:   "qingcloud-login-keypair",
+			Usage:  "Login keypair id.",
+		},
+		mcnflag.StringFlag{
+			EnvVar: "QINGCLOUD_SSH_KEYPATH",
+			Name:   "qingcloud-ssh-keypath",
+			Usage:  "SSH Key for Instance.",
+		},
+		mcnflag.IntFlag{
+			Name:  "qingcloud-cpu",
+			Usage: "Qingcloud cpu count",
+			Value: defaultCPU,
+		},
+		mcnflag.IntFlag{
+			Name:  "qingcloud-memory",
+			Usage: "Qingcloud memory size in GB",
+			Value: defaultMemory,
 		},
 	}
+}
+
+// SetConfigFromFlags configures the driver with the object that was returned
+// by RegisterCreateFlags
+func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
+	d.AccessKeyID = flags.String("qingcloud-access-key-id")
+	d.SecretAccessKey = flags.String("qingcloud-secret-access-key")
+	d.Zone = flags.String("qingcloud-zone")
+	d.VxNet = flags.String("qingcloud-vxnet-id")
+	d.LoginKeyPair = flags.String("qingcloud-login-keypair")
+	d.CPU = flags.Int("qingcloud-cpu")
+	d.Memory = flags.Int("qingcloud-memory")
+	d.SSHKeyPath = flags.String("qingcloud-ssh-keypath")
+	d.Image = flags.String("qingcloud-image")
+	return nil
 }
 
 func NewDriver(hostName, storePath string) *Driver {
@@ -78,14 +132,6 @@ func (d *Driver) DriverName() string {
 	return "qingcloud"
 }
 
-// SetConfigFromFlags configures the driver with the object that was returned
-// by RegisterCreateFlags
-func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
-	d.AccessKeyID = flags.String("qy_access_key_id")
-	d.SecretAccessKey = flags.String("qy_secret_access_key")
-	return nil
-}
-
 func (d *Driver) Config() *config.Config {
 	config := config.New(d.AccessKeyID, d.SecretAccessKey)
 	return config
@@ -99,12 +145,12 @@ func (d *Driver) PreCreateCheck() error {
 func (d *Driver) Create() error {
 	log.Infof("Creating SSH key...")
 
-	if d.SSHKeyID == "" {
+	if d.LoginKeyPair == "" {
 		key, err := d.createSSHKey()
 		if err != nil {
 			return err
 		}
-		d.SSHKeyID = key.ID
+		d.LoginKeyPair = key.ID
 	}
 
 	log.Infof("Creating Qingcloud Instance...")
@@ -115,7 +161,7 @@ func (d *Driver) Create() error {
 		Memory:       d.Memory,
 		ImageID:      d.Image,
 		VxNet:        d.VxNet,
-		LoginKeyPair: d.SSHKeyID,
+		LoginKeyPair: d.LoginKeyPair,
 	}
 	ins, err := client.RunInstance(arg)
 	if err != nil {
@@ -125,8 +171,49 @@ func (d *Driver) Create() error {
 	d.IPAddress = ins.VxNets[0].PrivateIP
 	d.MachineName = ins.InstanceID
 
-	log.Infof("Created Instance %s",
-		ins.InstanceID)
+	log.Infof("Created Instance [%s] IPAddress: [%s]",
+		ins.InstanceID, d.IPAddress)
+	d.checkOSEnv()
+
+	return nil
+}
+
+func (d *Driver) checkOSEnv() error {
+	log.Infof("Check OS Env on Instance [%s]", d.InstanceID)
+	sshClient, err := drivers.GetSSHClientFromDriver(d)
+	if err != nil {
+		log.Errorf("Get ssh client for [%s] error: [%s]", d.InstanceID, err.Error())
+		return err
+	}
+	// check access public network
+	err = mcnutils.WaitForSpecific(func() bool {
+		err := sshClient.Shell("ping -q -c 3 -W 10 get.docker.com")
+		if err != nil {
+			return false
+		}
+		return true
+	}, (defaultOpTimeout / 10), 10*time.Second)
+	if err != nil {
+		log.Errorf("Ping get.docker.com on Instance [%s] error :[%s]", d.InstanceID, err.Error())
+		return err
+	}
+	err = mcnutils.WaitForSpecific(func() bool {
+		err := sshClient.Shell("apt-get update")
+		if err != nil {
+			//kill process for lock /var/lib/dpkg/lock
+			sshClient.Shell("fuser -kw /var/lib/dpkg/lock")
+			sshClient.Shell("fuser -kw /var/lib/apt/lists/lock")
+			//dpkg interrupted, so reconfigure
+			sshClient.Shell("dpkg --configure -a")
+			sshClient.Shell("apt-get clean")
+			return false
+		}
+		return true
+	}, (defaultOpTimeout / 20), 20*time.Second)
+	if err != nil {
+		log.Errorf("Apt-get update on Instance [%s] error :[%s]", d.InstanceID, err.Error())
+		return err
+	}
 
 	return nil
 }
@@ -175,13 +262,13 @@ func (d *Driver) GetState() (state.State, error) {
 		return state.None, err
 	}
 	switch i.Status {
-	case "pending":
+	case INSTANCE_STATUS_PENDING:
 		return state.Starting, nil
-	case "running":
+	case INSTANCE_STATUS_RUNNING:
 		return state.Running, nil
-	case "stopped":
+	case INSTANCE_STATUS_STOPPED:
 		return state.Stopped, nil
-	case "suspended", "terminated", "ceased":
+	case INSTANCE_STATUS_SUSPENDED, INSTANCE_STATUS_TERMINATED, INSTANCE_STATUS_CEASED:
 		return state.Error, nil
 	}
 	return state.Error, nil

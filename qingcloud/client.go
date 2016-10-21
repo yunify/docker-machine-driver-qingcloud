@@ -11,6 +11,15 @@ import (
 	"time"
 )
 
+const (
+	INSTANCE_STATUS_PENDING    = "pending"
+	INSTANCE_STATUS_RUNNING    = "running"
+	INSTANCE_STATUS_STOPPED    = "stopped"
+	INSTANCE_STATUS_SUSPENDED  = "suspended"
+	INSTANCE_STATUS_TERMINATED = "terminated"
+	INSTANCE_STATUS_CEASED     = "ceased"
+)
+
 type Client interface {
 	RunInstance(arg *RunInstanceArg) (*instance.Instance, error)
 	DescribeInstance(instanceID string) (*instance.Instance, error)
@@ -81,6 +90,10 @@ func (c *client) RunInstance(arg *RunInstanceArg) (*instance.Instance, error) {
 		return nil, jobErr
 	}
 	instanceID := output.Instances[0]
+	waitErr := c.WaitInstanceStatus(instanceID, INSTANCE_STATUS_RUNNING)
+	if waitErr != nil {
+		return nil, waitErr
+	}
 	ins, waitErr := c.waitInstanceNetwork(instanceID)
 	if waitErr != nil {
 		return nil, waitErr
@@ -106,7 +119,11 @@ func (c *client) StartInstance(instanceID string) error {
 		return err
 	}
 	jobID := output.JobID
-	return c.waitJob(jobID)
+	waitErr := c.waitJob(jobID)
+	if waitErr != nil {
+		return waitErr
+	}
+	return c.WaitInstanceStatus(instanceID, INSTANCE_STATUS_RUNNING)
 }
 
 func (c *client) StopInstance(instanceID string, force bool) error {
@@ -122,7 +139,11 @@ func (c *client) StopInstance(instanceID string, force bool) error {
 		return err
 	}
 	jobID := output.JobID
-	return c.waitJob(jobID)
+	waitErr := c.waitJob(jobID)
+	if waitErr != nil {
+		return waitErr
+	}
+	return c.WaitInstanceStatus(instanceID, INSTANCE_STATUS_STOPPED)
 }
 
 func (c *client) RestartInstance(instanceID string) error {
@@ -144,7 +165,11 @@ func (c *client) TerminateInstance(instanceID string) error {
 		return err
 	}
 	jobID := output.JobID
-	return c.waitJob(jobID)
+	waitErr := c.waitJob(jobID)
+	if waitErr != nil {
+		return waitErr
+	}
+	return c.WaitInstanceStatus(instanceID, INSTANCE_STATUS_TERMINATED)
 }
 
 func (c *client) waitJob(jobID string) error {
@@ -178,6 +203,7 @@ func (c *client) WaitInstanceStatus(instanceID string, status string) error {
 				//wait transition to finished
 				return false, nil
 			}
+			log.Debugf("Instance [%s] status is [%s] ", instanceID, i.Status)
 			return true, nil
 		}
 		return false, nil
@@ -196,6 +222,7 @@ func (c *client) waitInstanceNetwork(instanceID string) (*instance.Instance, err
 			return false, nil
 		}
 		ins = i
+		log.Debugf("Instance [%s] get IP address [%s]", instanceID, ins.VxNets[0].PrivateIP)
 		return true, nil
 	}, (c.opTimeout / 5), 5*time.Second)
 	return ins, err
