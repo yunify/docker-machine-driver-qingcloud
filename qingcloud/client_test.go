@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"github.com/docker/machine/libmachine/log"
 	"github.com/yunify/qingcloud-sdk-go/config"
+	"io/ioutil"
 	"k8s.io/kubernetes/pkg/util/json"
 	"os"
+	"os/user"
+	"strings"
 	"testing"
 )
 
@@ -80,6 +83,12 @@ func TestClient(t *testing.T) {
 	if i4.Status != "running" {
 		t.Error("expect status running, but get ", i4.Status)
 	}
+
+	restartErr := client.RestartInstance(instanceID)
+	if restartErr != nil {
+		t.Fatal(restartErr)
+	}
+
 	fmt.Printf("terminate instance: %s\n", instanceID)
 	delErr := client.TerminateInstance(instanceID)
 	if delErr != nil {
@@ -92,6 +101,42 @@ func TestClient(t *testing.T) {
 	fmt.Printf("describe instance: %s\n", jsonString(i5))
 	if i5.Status != "terminated" {
 		t.Error("expect status terminated, but get ", i5.Status)
+	}
+
+}
+
+func TestClientKeyPair(t *testing.T) {
+	check(t)
+	config := config.New(accessKeyID, secretAccessKey)
+	//config.Services.IaaS.Host = "api.test.com"
+	//config.Services.IaaS.Protocol = "http"
+	//config.Services.IaaS.Port = 8880
+	//client, err := NewClient(config, "allinone")
+	client, err := NewClient(config, defaultZone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := user.Current()
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicKey, err := ioutil.ReadFile(fmt.Sprintf("%s/.ssh/id_rsa.pub", u.HomeDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicKeyStr := strings.TrimSpace(string(publicKey))
+	keyPairID, err := client.CreateKeyPair("test keypair", publicKeyStr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyPair, err := client.DescribeKeyPair(keyPairID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	println(keyPair.PubKey)
+	err = client.DeleteKeyPair(keyPairID)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 }

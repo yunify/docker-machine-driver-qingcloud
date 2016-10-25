@@ -6,14 +6,18 @@ import (
 	"github.com/docker/machine/libmachine/log"
 	"github.com/docker/machine/libmachine/mcnflag"
 	"github.com/docker/machine/libmachine/mcnutils"
+	"github.com/docker/machine/libmachine/ssh"
 	"github.com/docker/machine/libmachine/state"
+	"github.com/pkg/errors"
 	"github.com/yunify/qingcloud-sdk-go/config"
 	"github.com/yunify/qingcloud-sdk-go/service/instance"
+	"io/ioutil"
 	"time"
 )
 
 const (
-	defaultImage     = "xenialx64b" //"trustysrvx64h"
+	defaultImage = "xenialx64b"
+	//defaultImage     = "trustysrvx64h"
 	defaultZone      = "pek3a"
 	defaultCPU       = 1
 	defaultMemory    = 1024
@@ -139,6 +143,19 @@ func (d *Driver) Config() *config.Config {
 
 // PreCreateCheck allows for pre-create operations to make sure a driver is ready for creation
 func (d *Driver) PreCreateCheck() error {
+	if d.LoginKeyPair != "" {
+		_, err := d.GetClient().DescribeKeyPair(d.LoginKeyPair)
+		if err != nil {
+			return err
+		}
+		if d.SSHKeyPath == "" {
+			return errors.New("Param error: qingcloud-login-keypair param should work with qingcloud-ssh-keypath param.")
+		}
+	}
+	if d.VxNet == "" {
+		return errors.New("Param qingcloud-vxnet-id required.")
+	}
+
 	return nil
 }
 
@@ -146,11 +163,10 @@ func (d *Driver) Create() error {
 	log.Infof("Creating SSH key...")
 
 	if d.LoginKeyPair == "" {
-		key, err := d.createSSHKey()
+		err := d.createSSHKey()
 		if err != nil {
 			return err
 		}
-		d.LoginKeyPair = key.ID
 	}
 
 	log.Infof("Creating Qingcloud Instance...")
@@ -162,6 +178,7 @@ func (d *Driver) Create() error {
 		ImageID:      d.Image,
 		VxNet:        d.VxNet,
 		LoginKeyPair: d.LoginKeyPair,
+		InstanceName: d.MachineName,
 	}
 	ins, err := client.RunInstance(arg)
 	if err != nil {
@@ -233,9 +250,36 @@ func (d *Driver) getInstance() (*instance.Instance, error) {
 	return d.GetClient().DescribeInstance(d.InstanceID)
 }
 
-func (d *Driver) createSSHKey() (*SSHKeyPair, error) {
-	//TODO
-	return nil, nil
+func (d *Driver) createSSHKey() error {
+
+	if d.SSHKeyPath == "" {
+		log.Debugf("Creating New SSH Key")
+		if err := ssh.GenerateSSHKey(d.GetSSHKeyPath()); err != nil {
+			return err
+		}
+		d.SSHKeyPath = d.GetSSHKeyPath()
+	} else {
+		log.Debugf("Using SSHKeyPath: %s", d.SSHKeyPath)
+		if d.LoginKeyPair != "" {
+			log.Debugf("Using existing LoginKeyPair: %s", d.LoginKeyPair)
+			return nil
+		}
+	}
+
+	publicKey, err := ioutil.ReadFile(d.publicSSHKeyPath())
+	if err != nil {
+		return err
+	}
+
+	keyName := d.MachineName
+
+	log.Debugf("Creating key pair: %s", keyName)
+	keyPairID, err := d.GetClient().CreateKeyPair(keyName, string(publicKey))
+	if err != nil {
+		return err
+	}
+	d.LoginKeyPair = keyPairID
+	return nil
 }
 
 func (d *Driver) publicSSHKeyPath() string {
