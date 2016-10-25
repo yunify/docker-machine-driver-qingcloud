@@ -1,12 +1,12 @@
 package qingcloud
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/docker/machine/libmachine/log"
 	"github.com/yunify/qingcloud-sdk-go/config"
 	"io/ioutil"
-	"k8s.io/kubernetes/pkg/util/json"
 	"os"
 	"os/user"
 	"strings"
