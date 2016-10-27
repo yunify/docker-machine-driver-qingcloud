@@ -111,6 +111,7 @@ func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
 	d.Memory = flags.Int("qingcloud-memory")
 	d.SSHKeyPath = flags.String("qingcloud-ssh-keypath")
 	d.Image = flags.String("qingcloud-image")
+	d.SetSwarmConfigFromFlags(flags)
 	return nil
 }
 
