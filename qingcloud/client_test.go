@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/docker/machine/libmachine/log"
 	"github.com/yunify/qingcloud-sdk-go/config"
+	sdklogger "github.com/yunify/qingcloud-sdk-go/logger"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -31,7 +32,11 @@ func jsonString(v interface{}) string {
 
 func TestClient(t *testing.T) {
 	check(t)
-	config := config.New(accessKeyID, secretAccessKey)
+	config, err := config.New(accessKeyID, secretAccessKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sdklogger.SetLevel("debug")
 	client, err := NewClient(config, defaultZone)
 	if err != nil {
 		t.Fatal(err)
@@ -107,7 +112,10 @@ func TestClient(t *testing.T) {
 
 func TestClientKeyPair(t *testing.T) {
 	check(t)
-	config := config.New(accessKeyID, secretAccessKey)
+	config, err := config.New(accessKeyID, secretAccessKey)
+	if err != nil {
+		t.Fatal(err)
+	}
 	//config.Services.IaaS.Host = "api.test.com"
 	//config.Services.IaaS.Protocol = "http"
 	//config.Services.IaaS.Port = 8880

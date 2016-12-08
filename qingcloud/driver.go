@@ -10,7 +10,7 @@ import (
 	"github.com/docker/machine/libmachine/state"
 	"github.com/pkg/errors"
 	"github.com/yunify/qingcloud-sdk-go/config"
-	"github.com/yunify/qingcloud-sdk-go/service/instance"
+	qcservice "github.com/yunify/qingcloud-sdk-go/service"
 	"io/ioutil"
 	"time"
 )
@@ -52,17 +52,17 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 		mcnflag.StringFlag{
 			EnvVar: "QINGCLOUD_ACCESS_KEY_ID",
 			Name:   "qingcloud-access-key-id",
-			Usage:  "Qingcloud access key id",
+			Usage:  "QingCloud access key id",
 		},
 		mcnflag.StringFlag{
 			EnvVar: "QINGCLOUD_SECRET_ACCESS_KEY",
 			Name:   "qingcloud-secret-access-key",
-			Usage:  "Qingcloud secret access key",
+			Usage:  "QingCloud secret access key",
 		},
 		mcnflag.StringFlag{
 			EnvVar: "QINGCLOUD_ZONE",
 			Name:   "qingcloud-zone",
-			Usage:  "Qingcloud zone",
+			Usage:  "QingCloud zone",
 			Value:  defaultZone,
 		},
 		mcnflag.StringFlag{
@@ -88,12 +88,12 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 		},
 		mcnflag.IntFlag{
 			Name:  "qingcloud-cpu",
-			Usage: "Qingcloud cpu count",
+			Usage: "QingCloud cpu count",
 			Value: defaultCPU,
 		},
 		mcnflag.IntFlag{
 			Name:  "qingcloud-memory",
-			Usage: "Qingcloud memory size in GB",
+			Usage: "QingCloud memory size in GB",
 			Value: defaultMemory,
 		},
 	}
@@ -138,7 +138,10 @@ func (d *Driver) DriverName() string {
 }
 
 func (d *Driver) Config() *config.Config {
-	config := config.New(d.AccessKeyID, d.SecretAccessKey)
+	config, err := config.New(d.AccessKeyID, d.SecretAccessKey)
+	if err != nil {
+		panic(fmt.Sprintf("init config error: %s", err.Error()))
+	}
 	return config
 }
 
@@ -170,7 +173,7 @@ func (d *Driver) Create() error {
 		}
 	}
 
-	log.Infof("Creating Qingcloud Instance...")
+	log.Infof("Creating QingCloud Instance...")
 
 	client := d.GetClient()
 	arg := &RunInstanceArg{
@@ -247,7 +250,7 @@ func (d *Driver) GetClient() Client {
 	return d.client
 }
 
-func (d *Driver) getInstance() (*instance.Instance, error) {
+func (d *Driver) getInstance() (*qcservice.Instance, error) {
 	return d.GetClient().DescribeInstance(d.InstanceID)
 }
 
