@@ -13,6 +13,8 @@ import (
 	qcservice "github.com/yunify/qingcloud-sdk-go/service"
 	"io/ioutil"
 	"time"
+	"os/user"
+	"path"
 )
 
 const (
@@ -24,7 +26,6 @@ const (
 	defaultOpTimeout  = 180 //second
 	dockerPort        = 2376
 	swarmPort         = 3376
-	defaultSSHKeyPath = "~/.ssh/id_rsa"
 )
 
 type Driver struct {
@@ -49,6 +50,11 @@ type SSHKeyPair struct {
 // "docker hosts create"
 
 func (d *Driver) GetCreateFlags() []mcnflag.Flag {
+	user, err := user.Current()
+	if err != nil {
+		log.Errorf("Get current user error: %s", err.Error())
+	}
+	defaultSSHKeyPath := path.Join(user.HomeDir, ".ssh/id_rsa")
 	return []mcnflag.Flag{
 		mcnflag.StringFlag{
 			EnvVar: "QINGCLOUD_ACCESS_KEY_ID",
