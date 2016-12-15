@@ -1,2 +1,3 @@
 .idea
 docker-machine-driver-qingcloud
+bin/

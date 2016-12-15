@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+
+echo "Release docker-machine-driver-qingcloud linux version ..."
+mkdir -p bin/linux
+env GOOS=linux GOARCH=amd64 go build -o bin/linux/docker-machine-driver-qingcloud .
+tar -C bin/linux/ -czf bin/linux/docker-machine-driver-qingcloud-linux-amd64.tar.gz docker-machine-driver-qingcloud
+
+echo "Release docker-machine-driver-qingcloud darwin version ..."
+mkdir -p bin/darwin
+env GOOS=darwin GOARCH=amd64 go build -o bin/darwin/docker-machine-driver-qingcloud .
+tar -C bin/darwin/ -czf bin/darwin/docker-machine-driver-qingcloud-darwin-amd64.tar.gz docker-machine-driver-qingcloud
+
+ls -lh bin/*
+
