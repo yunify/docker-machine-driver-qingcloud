@@ -1,26 +1,24 @@
 sudo: required
-
 language: go
-
 services:
-    - docker
-
+- docker
 go:
-    - 1.7
-before_install:
+- 1.7
+before_install: 
 install:
-    - go build .
+- go build .
 script:
-    - echo "test skip"
+- echo "test skip"
 before_deploy:
-    - "./release"
+- "./release"
 deploy:
-    provider: releases
-    api_key:
-        secure: VlTP7AlzVV2PuCU+hRPMYW5H050PvMufxPLNmurqziDUlHSDmvyWZc6cEicdXbZNI7ANr9R6a+OYUjtZ/uteK6uMkKzMjfWjZCPtu0XXcp23N0ortFgsa4wvbRvC5lHOAdSjDXusCnPebeBfvGcphkws1Ps2Z3OfsfKEAKr5ZUNgI3z7T+wH38hIGrR4rSJoedkjWRmHzPYeJZFnfYezgI5LzfWYpFvf6CU0tIYJs8B2BqRoz/c9so1l6So7jeNd/yHDcAN6+hBxv7ruSRCzzHqyfUfBqT2JlaKZrTZygRc4Iu1pBqefJLLQYBB3DfoOTyAegkwS+hICQml2e1lvDX749k/UwNvmEDYptKp6F+OE7SXMIGxcnRL55Vv0l4nG1h5JFJFvTd0MU/jY33cI6p2uRgZ1LT4/jN737t+9FpM+i8+R0tdM0e9xZRrjpHChZqC9PdC6u0s1qyI02+8w9giNpH4MipgNRR3iXNrtya4bOF5VgYqM0kJTHyHtzoh1yyy+UtnW3W1EGDXkQPluHPM7kdo9xPWrWbxAV9idcZUNdpticnn+6WdFCdYT8hrcUZIiuTavlWhzvn+R2dH5bOSdLigS87KDK9oqPTvVW9FU6i9rVT/w+Y1dpwwhHJz+2H7vwgCKnktx9ZhMav09Xqjej88JwX3YKxc7WONny1g=
-    file:
-        - "bin/linux/docker-machine-driver-qingcloud-linux-amd64.tar.gz"
-        - "bin/darwin/docker-machine-driver-qingcloud-darwin-amd64.tar.gz"
-    on:
-        repo: yunify/docker-machine-driver-qingcloud
-        tags: true
+  provider: releases
+  api_key:
+    secure: EijcrwN/SdT7Hl6tH1sPzmuKHAIcB/lJgKB81FxeWkVHpp9ZHd4bblOqbuNPLMvo4torKNGPkBF6b20H7dPWpi9X6BxMHVipIw8Q5NcJB8CeeTP/VThO9s3eE62QihxmkK0D/8to92k7RYKJN1T/B+JmaKvjhz0RkokLryRJ5UUBRIeJRz4LXeRkDoqNkAtYs3IF8HcH9jKtEqQpjiGfCutcV7D7XGfN0x8reHD1axm+YETtgl2tPr2sRisAB4PbMXdgppV4GvyqVT82ICw0IyF8t91fLknskmUhX/jbgHypDThag72tJDxLm1f7PMZX9ZWbhmCxlX9k+Otb1RBnzLawsxJ/svao2W6reJoYgG1eDNpkXhuPnefV8FpXKBl7HLWSYIqm4eBvJ9Iuvx2CC1NNzaHJy6YQ1lZjdZvbt/6CFiO1bS5BwFReM1OYth6t+wzerN2rpMIfwsNA9PBBa4vVdUMwcMuZMYpXhiasW25oupFe/qsWoXIO1swj/twbdFq7wXKMeBEiGs/+fVX7QVfdGFmYQ57/VOhdWW4TfbZRE21hyS46tZIbjkpvf+tapiWAYiGnshuwXQt2k6W4MjZqUWa3J40oJrdbAHOhfXC20fgdb6+KG6s/5BfX0+8V6nzlY4CUyapkQSCfLbdZClL9EVInV63iwx+EX3GmZOg=
+  file:
+   - bin/linux/docker-machine-driver-qingcloud-linux-amd64.tar.gz
+   - "bin/darwin/docker-machine-driver-qingcloud-darwin-amd64.tar.gz"
+  on:
+    repo: yunify/docker-machine-driver-qingcloud
+    tags: true
+
