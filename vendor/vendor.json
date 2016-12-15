@@ -1,0 +1,114 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "7uoXh/xatGnyfoA+Xp9acWPnxos=",
+			"origin": "github.com/docker/machine/vendor/github.com/docker/docker/pkg/term",
+			"path": "github.com/docker/docker/pkg/term",
+			"revision": "b98677ad5e92d795bbee248e09f04098ac56b8f3",
+			"revisionTime": "2016-09-20T23:15:45Z"
+		},
+		{
+			"checksumSHA1": "d05NqwSP142/xXi+MKHq2DaPfs4=",
+			"path": "github.com/docker/machine/libmachine/drivers",
+			"revision": "b98677ad5e92d795bbee248e09f04098ac56b8f3",
+			"revisionTime": "2016-09-20T23:15:45Z"
+		},
+		{
+			"checksumSHA1": "b6FiGli26lMxC8618Y3QfmTluRE=",
+			"path": "github.com/docker/machine/libmachine/drivers/plugin",
+			"revision": "b98677ad5e92d795bbee248e09f04098ac56b8f3",
+			"revisionTime": "2016-09-20T23:15:45Z"
+		},
+		{
+			"checksumSHA1": "v3bUrIqveSmuSQd4g7zmgzQHXAE=",
+			"path": "github.com/docker/machine/libmachine/drivers/plugin/localbinary",
+			"revision": "b98677ad5e92d795bbee248e09f04098ac56b8f3",
+			"revisionTime": "2016-09-20T23:15:45Z"
+		},
+		{
+			"checksumSHA1": "xVMjFOjdcs/Mhhc4BDnq8hM47FE=",
+			"path": "github.com/docker/machine/libmachine/drivers/rpc",
+			"revision": "b98677ad5e92d795bbee248e09f04098ac56b8f3",
+			"revisionTime": "2016-09-20T23:15:45Z"
+		},
+		{
+			"checksumSHA1": "pfZB2heUOImpxC+LS/xFSFDd2J8=",
+			"path": "github.com/docker/machine/libmachine/log",
+			"revision": "b98677ad5e92d795bbee248e09f04098ac56b8f3",
+			"revisionTime": "2016-09-20T23:15:45Z"
+		},
+		{
+			"checksumSHA1": "XIdpqyZtMW3gLbUefSiqsJvcDpw=",
+			"path": "github.com/docker/machine/libmachine/mcnflag",
+			"revision": "b98677ad5e92d795bbee248e09f04098ac56b8f3",
+			"revisionTime": "2016-09-20T23:15:45Z"
+		},
+		{
+			"checksumSHA1": "QG310EdbozuJynkrfT3wvVm29FY=",
+			"path": "github.com/docker/machine/libmachine/mcnutils",
+			"revision": "b98677ad5e92d795bbee248e09f04098ac56b8f3",
+			"revisionTime": "2016-09-20T23:15:45Z"
+		},
+		{
+			"checksumSHA1": "6XO59nYZ6unju77UAjOsFvqnDjo=",
+			"path": "github.com/docker/machine/libmachine/ssh",
+			"revision": "b98677ad5e92d795bbee248e09f04098ac56b8f3",
+			"revisionTime": "2016-09-20T23:15:45Z"
+		},
+		{
+			"checksumSHA1": "a6bG+ux4k1XPcMoDrZSyjVhQ4cA=",
+			"path": "github.com/docker/machine/libmachine/state",
+			"revision": "b98677ad5e92d795bbee248e09f04098ac56b8f3",
+			"revisionTime": "2016-09-20T23:15:45Z"
+		},
+		{
+			"checksumSHA1": "q2r55GR/IIt8lDiXJYGsEdzQQqc=",
+			"path": "github.com/docker/machine/libmachine/version",
+			"revision": "b98677ad5e92d795bbee248e09f04098ac56b8f3",
+			"revisionTime": "2016-09-20T23:15:45Z"
+		},
+		{
+			"checksumSHA1": "MotUnJVkO3Cg501ZASzbnwb+Um4=",
+			"path": "github.com/docker/machine/version",
+			"revision": "b98677ad5e92d795bbee248e09f04098ac56b8f3",
+			"revisionTime": "2016-09-20T23:15:45Z"
+		},
+		{
+			"checksumSHA1": "Hky3u+8Rqum+wB5BHMj0A8ZmT4g=",
+			"path": "github.com/pkg/errors",
+			"revision": "17b591df37844cde689f4d5813e5cea0927d8dd2",
+			"revisionTime": "2016-08-22T09:00:10Z"
+		},
+		{
+			"checksumSHA1": "aoSz8FFZKjN9XFPV5q5g1jTz9qA=",
+			"path": "github.com/yunify/qingcloud-sdk-go",
+			"revision": "9818466f5d4fee284266575c016aca21db8347ab",
+			"revisionTime": "2016-12-14T08:30:08Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "AMBhAXNq0e9HUcBFbcnSDEU5w5k=",
+			"origin": "github.com/docker/machine/vendor/golang.org/x/crypto/curve25519",
+			"path": "golang.org/x/crypto/curve25519",
+			"revision": "b98677ad5e92d795bbee248e09f04098ac56b8f3",
+			"revisionTime": "2016-09-20T23:15:45Z"
+		},
+		{
+			"checksumSHA1": "90Xe0d21FElDb7O556qO0j7uXLk=",
+			"origin": "github.com/docker/machine/vendor/golang.org/x/crypto/ssh",
+			"path": "golang.org/x/crypto/ssh",
+			"revision": "b98677ad5e92d795bbee248e09f04098ac56b8f3",
+			"revisionTime": "2016-09-20T23:15:45Z"
+		},
+		{
+			"checksumSHA1": "H7UkOZUU9oZSNPZDzaFHAvW0Z1I=",
+			"origin": "github.com/docker/machine/vendor/golang.org/x/crypto/ssh/terminal",
+			"path": "golang.org/x/crypto/ssh/terminal",
+			"revision": "b98677ad5e92d795bbee248e09f04098ac56b8f3",
+			"revisionTime": "2016-09-20T23:15:45Z"
+		}
+	],
+	"rootPath": "github.com/yunify/docker-machine-driver-qingcloud"
+}
