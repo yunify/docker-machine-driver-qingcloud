@@ -18,12 +18,13 @@ import (
 const (
 	defaultImage = "xenialx64b"
 	//defaultImage     = "trustysrvx64h"
-	defaultZone      = "pek3a"
-	defaultCPU       = 1
-	defaultMemory    = 1024
-	defaultOpTimeout = 180 //second
-	dockerPort       = 2376
-	swarmPort        = 3376
+	defaultZone       = "pek3a"
+	defaultCPU        = 1
+	defaultMemory     = 1024
+	defaultOpTimeout  = 180 //second
+	dockerPort        = 2376
+	swarmPort         = 3376
+	defaultSSHKeyPath = "~/.ssh/id_rsa"
 )
 
 type Driver struct {
@@ -85,6 +86,7 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			EnvVar: "QINGCLOUD_SSH_KEYPATH",
 			Name:   "qingcloud-ssh-keypath",
 			Usage:  "SSH Key for Instance.",
+			Value:  defaultSSHKeyPath,
 		},
 		mcnflag.IntFlag{
 			Name:  "qingcloud-cpu",
@@ -93,7 +95,7 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 		},
 		mcnflag.IntFlag{
 			Name:  "qingcloud-memory",
-			Usage: "QingCloud memory size in GB",
+			Usage: "QingCloud memory size in MB",
 			Value: defaultMemory,
 		},
 	}
