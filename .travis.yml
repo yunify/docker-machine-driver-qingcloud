@@ -16,7 +16,7 @@ deploy:
   api_key:
     secure: EijcrwN/SdT7Hl6tH1sPzmuKHAIcB/lJgKB81FxeWkVHpp9ZHd4bblOqbuNPLMvo4torKNGPkBF6b20H7dPWpi9X6BxMHVipIw8Q5NcJB8CeeTP/VThO9s3eE62QihxmkK0D/8to92k7RYKJN1T/B+JmaKvjhz0RkokLryRJ5UUBRIeJRz4LXeRkDoqNkAtYs3IF8HcH9jKtEqQpjiGfCutcV7D7XGfN0x8reHD1axm+YETtgl2tPr2sRisAB4PbMXdgppV4GvyqVT82ICw0IyF8t91fLknskmUhX/jbgHypDThag72tJDxLm1f7PMZX9ZWbhmCxlX9k+Otb1RBnzLawsxJ/svao2W6reJoYgG1eDNpkXhuPnefV8FpXKBl7HLWSYIqm4eBvJ9Iuvx2CC1NNzaHJy6YQ1lZjdZvbt/6CFiO1bS5BwFReM1OYth6t+wzerN2rpMIfwsNA9PBBa4vVdUMwcMuZMYpXhiasW25oupFe/qsWoXIO1swj/twbdFq7wXKMeBEiGs/+fVX7QVfdGFmYQ57/VOhdWW4TfbZRE21hyS46tZIbjkpvf+tapiWAYiGnshuwXQt2k6W4MjZqUWa3J40oJrdbAHOhfXC20fgdb6+KG6s/5BfX0+8V6nzlY4CUyapkQSCfLbdZClL9EVInV63iwx+EX3GmZOg=
   file:
-   - bin/linux/docker-machine-driver-qingcloud-linux-amd64.tar.gz
+   - "bin/linux/docker-machine-driver-qingcloud-linux-amd64.tar.gz"
    - "bin/darwin/docker-machine-driver-qingcloud-darwin-amd64.tar.gz"
   on:
     repo: yunify/docker-machine-driver-qingcloud
