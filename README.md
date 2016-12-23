@@ -23,7 +23,7 @@ The easiest way to install the QingCloud docker-machine driver is to:
 go get github.com/yunify/docker-machine-driver-qingcloud
 ```
 
-binaries also available,you can download from [releases](https://github.com/yunify/docker-machine-driver-qingcloud/releases)
+binaries also available,you can download from [releases](https://github.com/yunify/docker-machine-driver-qingcloud/releases),and put docker-machine-driver-qingcloud file to your any PATH folder, such as /usr/local/bin
 
 
 ## Example Usage
