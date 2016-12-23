@@ -19,6 +19,8 @@ const (
 	INSTANCE_STATUS_CEASED     = "ceased"
 )
 
+var DefaultInstanceClassByZone = map[string]int{"pek1": 0, "pek2": 0, "pek3a": 0, "gd1": 0, "ap1": 0, "sh1a": 1}
+
 type Client interface {
 	RunInstance(arg *RunInstanceArg) (*qcservice.Instance, error)
 	DescribeInstance(instanceID string) (*qcservice.Instance, error)
@@ -49,12 +51,15 @@ func NewClient(config *config.Config, zone string) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	instanceClass := DefaultInstanceClassByZone[zone]
+
 	c := &client{
 		instanceService: instanceService,
 		jobService:      jobService,
 		keypairService:  keypairService,
 		opTimeout:       defaultOpTimeout,
 		zone:            zone,
+		instanceClass:   instanceClass,
 	}
 	return c, nil
 }
@@ -65,6 +70,7 @@ type client struct {
 	keypairService  *qcservice.KeyPairService
 	opTimeout       int
 	zone            string
+	instanceClass   int
 }
 
 type RunInstanceArg struct {
@@ -78,13 +84,14 @@ type RunInstanceArg struct {
 
 func (c *client) RunInstance(arg *RunInstanceArg) (*qcservice.Instance, error) {
 	input := &qcservice.RunInstancesInput{
-		CPU:          arg.CPU,
-		Count:        1,
-		ImageID:      arg.ImageID,
-		Memory:       arg.Memory,
-		LoginKeyPair: arg.LoginKeyPair,
-		LoginMode:    "keypair",
-		InstanceName: arg.InstanceName,
+		CPU:           arg.CPU,
+		Count:         1,
+		ImageID:       arg.ImageID,
+		Memory:        arg.Memory,
+		LoginKeyPair:  arg.LoginKeyPair,
+		LoginMode:     "keypair",
+		InstanceName:  arg.InstanceName,
+		InstanceClass: c.instanceClass,
 		//SecurityGroup string   `json:"security_group" name:"security_group" location:"requestParams"`
 		VxNets: []string{arg.VxNet},
 		//Volumes       []string `json:"volumes" name:"volumes" location:"requestParams"`
@@ -114,7 +121,7 @@ func (c *client) RunInstance(arg *RunInstanceArg) (*qcservice.Instance, error) {
 	return ins, nil
 }
 func (c *client) DescribeInstance(instanceID string) (*qcservice.Instance, error) {
-	input := &qcservice.DescribeInstancesInput{Instances: []string{instanceID}}
+	input := &qcservice.DescribeInstancesInput{Instances: []string{instanceID}, InstanceClass: c.instanceClass}
 	output, err := c.instanceService.DescribeInstances(input)
 	if err != nil {
 		return nil, err
@@ -242,10 +249,17 @@ func (c *client) waitJob(jobID string) error {
 
 func (c *client) WaitInstanceStatus(instanceID string, status string) error {
 	log.Debugf("Waiting for Instance [%s] status [%s] ", instanceID, status)
+	errorTimes := 0
 	return mcnutils.WaitForSpecificOrError(func() (bool, error) {
 		i, err := c.DescribeInstance(instanceID)
 		if err != nil {
-			return false, err
+			log.Errorf("DescribeInstance [%s] error : [%s]", instanceID, err.Error())
+			errorTimes += 1
+			if errorTimes > 3 {
+				return false, err
+			} else {
+				return false, nil
+			}
 		}
 		if i.Status == status {
 			if i.TransitionStatus != "" {

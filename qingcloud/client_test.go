@@ -18,6 +18,7 @@ var loginKeyPair string
 var vxNet string
 var accessKeyID string
 var secretAccessKey string
+var zone string
 
 func check(t *testing.T) {
 	if loginKeyPair == "" || vxNet == "" || accessKeyID == "" || secretAccessKey == "" {
@@ -37,7 +38,7 @@ func TestClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	sdklogger.SetLevel("debug")
-	client, err := NewClient(config, defaultZone)
+	client, err := NewClient(config, zone)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,6 +155,7 @@ func init() {
 	flag.StringVar(&vxNet, "vxNet", "", "vxNet")
 	flag.StringVar(&accessKeyID, "accessKeyID", "", "accessKeyID")
 	flag.StringVar(&secretAccessKey, "secretAccessKey", "", "secretAccessKey")
+	flag.StringVar(&zone, "zone", defaultZone, "zone")
 	log.SetDebug(true)
 }
 
