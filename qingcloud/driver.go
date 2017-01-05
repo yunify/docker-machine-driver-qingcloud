@@ -8,13 +8,13 @@ import (
 	"github.com/docker/machine/libmachine/mcnutils"
 	"github.com/docker/machine/libmachine/ssh"
 	"github.com/docker/machine/libmachine/state"
-	"github.com/pkg/errors"
 	"github.com/yunify/qingcloud-sdk-go/config"
 	qcservice "github.com/yunify/qingcloud-sdk-go/service"
 	"io/ioutil"
 	"os/user"
 	"path"
 	"time"
+	"errors"
 )
 
 const (
