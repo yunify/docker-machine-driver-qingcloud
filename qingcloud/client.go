@@ -18,6 +18,9 @@ const (
 	INSTANCE_STATUS_TERMINATED = "terminated"
 	INSTANCE_STATUS_CEASED     = "ceased"
 )
+const (
+	DefaultSecurityGroupName = "docker-machine"
+)
 
 var DefaultInstanceClassByZone = map[string]int{"pek1": 0, "pek2": 0, "pek3a": 0, "gd1": 0, "ap1": 0, "sh1a": 1}
 
@@ -29,6 +32,12 @@ type Client interface {
 	RestartInstance(instanceID string) error
 	TerminateInstance(instanceID string) error
 	WaitInstanceStatus(instanceID string, status string) error
+
+	BindEIP(instanceID string) (*qcservice.EIP, error)
+	ReleaseEIP(eipID string) error
+	BindSecurityGroup(instanceID string, rules []*qcservice.SecurityGroupRule) (*qcservice.SecurityGroup, error)
+	DeleteSecurityGroup(sgID string) error
+
 	CreateKeyPair(keyPairName string, publicKey string) (string, error)
 	DescribeKeyPair(keyPairID string) (*qcservice.KeyPair, error)
 	DeleteKeyPair(keyPairID string) error
@@ -51,26 +60,39 @@ func NewClient(config *config.Config, zone string) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	eipService, err := qcService.EIP(zone)
+	if err != nil {
+		return nil, err
+	}
+	securityGroupService, err := qcService.SecurityGroup(zone)
+	if err != nil {
+		return nil, err
+	}
+
 	instanceClass := DefaultInstanceClassByZone[zone]
 
 	c := &client{
-		instanceService: instanceService,
-		jobService:      jobService,
-		keypairService:  keypairService,
-		opTimeout:       defaultOpTimeout,
-		zone:            zone,
-		instanceClass:   instanceClass,
+		instanceService:      instanceService,
+		jobService:           jobService,
+		keypairService:       keypairService,
+		eipService:           eipService,
+		securityGroupService: securityGroupService,
+		opTimeout:            defaultOpTimeout,
+		zone:                 zone,
+		instanceClass:        instanceClass,
 	}
 	return c, nil
 }
 
 type client struct {
-	instanceService *qcservice.InstanceService
-	jobService      *qcservice.JobService
-	keypairService  *qcservice.KeyPairService
-	opTimeout       int
-	zone            string
-	instanceClass   int
+	instanceService      *qcservice.InstanceService
+	jobService           *qcservice.JobService
+	keypairService       *qcservice.KeyPairService
+	eipService           *qcservice.EIPService
+	securityGroupService *qcservice.SecurityGroupService
+	opTimeout            int
+	zone                 string
+	instanceClass        int
 }
 
 type RunInstanceArg struct {
@@ -120,6 +142,7 @@ func (c *client) RunInstance(arg *RunInstanceArg) (*qcservice.Instance, error) {
 	}
 	return ins, nil
 }
+
 func (c *client) DescribeInstance(instanceID string) (*qcservice.Instance, error) {
 	input := &qcservice.DescribeInstancesInput{Instances: []string{instanceID}, InstanceClass: c.instanceClass}
 	output, err := c.instanceService.DescribeInstances(input)
@@ -194,7 +217,102 @@ func (c *client) TerminateInstance(instanceID string) error {
 	return c.WaitInstanceStatus(instanceID, INSTANCE_STATUS_TERMINATED)
 }
 
-func (c client) CreateKeyPair(keyPairName string, publicKey string) (string, error) {
+func (c *client) BindEIP(instanceID string) (*qcservice.EIP, error) {
+	eip, err := c.allocateEIP(instanceID)
+	if err != nil {
+		return nil, err
+	}
+	input := &qcservice.AssociateEIPInput{EIP: eip.EIPID, Instance: instanceID}
+	output, err := c.eipService.AssociateEIP(input)
+	if err != nil {
+		return nil, err
+	}
+	jobID := output.JobID
+	err = c.waitJob(jobID)
+	if err != nil {
+		return nil, err
+	}
+	return eip, nil
+}
+
+func (c *client) allocateEIP(instanceID string) (*qcservice.EIP, error) {
+	allocateEIPInput := &qcservice.AllocateEIPsInput{Bandwidth: defaultEIPBandwidth, EIPName: instanceID}
+	allocateEIPOutput, err := c.eipService.AllocateEIPs(allocateEIPInput)
+	if err != nil {
+		return nil, err
+	}
+	eip := allocateEIPOutput.EIPs[0]
+	input := &qcservice.DescribeEIPsInput{EIPs: []string{eip}}
+	output, err := c.eipService.DescribeEIPs(input)
+	if err != nil {
+		return nil, err
+	}
+	return output.EIPSet[0], nil
+}
+
+func (c *client) ReleaseEIP(eipID string) error {
+	input := &qcservice.ReleaseEIPsInput{EIPs: []string{eipID}}
+	_, err := c.eipService.ReleaseEIPs(input)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *client) BindSecurityGroup(instanceID string, rules []*qcservice.SecurityGroupRule) (*qcservice.SecurityGroup, error) {
+	sg, err := c.createSecurityGroup(rules)
+	if err != nil {
+		return nil, err
+	}
+	applySGInput := &qcservice.ApplySecurityGroupInput{SecurityGroup: sg.SecurityGroupID, Instances: []string{instanceID}}
+	applySGOutput, err := c.securityGroupService.ApplySecurityGroup(applySGInput)
+	if err != nil {
+		return nil, err
+	}
+	log.Debugf("ApplySecurityGroup SecurityGroup:%s, output: %+v ", sg.SecurityGroupID, applySGOutput)
+	return sg, nil
+}
+
+func (c *client) createSecurityGroup(rules []*qcservice.SecurityGroupRule) (*qcservice.SecurityGroup, error) {
+	createInput := &qcservice.CreateSecurityGroupInput{SecurityGroupName: DefaultSecurityGroupName}
+	createOutput, err := c.securityGroupService.CreateSecurityGroup(createInput)
+	if err != nil {
+		return nil, err
+	}
+	sgID := createOutput.SecurityGroupID
+	input := &qcservice.DescribeSecurityGroupsInput{SecurityGroups: []string{sgID}}
+	output, err := c.securityGroupService.DescribeSecurityGroups(input)
+	if err != nil {
+		return nil, err
+	}
+	sg := output.SecurityGroupSet[0]
+	err = c.addSecurityRule(sg.SecurityGroupID, defaultSecurityGroupRules)
+	if err != nil {
+		return sg, err
+	}
+	return sg, nil
+}
+
+func (c *client) addSecurityRule(sgID string, rules []*qcservice.SecurityGroupRule) error {
+	addRuleInput := &qcservice.AddSecurityGroupRulesInput{SecurityGroup: sgID, Rules: rules}
+	addRuleOutput, err := c.securityGroupService.AddSecurityGroupRules(addRuleInput)
+	if err != nil {
+		return err
+	}
+	log.Debugf("AddSecurityGroupRules SecurityGroup:%s, output: %+v ", sgID, addRuleOutput)
+	return nil
+}
+
+func (c *client) DeleteSecurityGroup(sgID string) error {
+	input := &qcservice.DeleteSecurityGroupsInput{SecurityGroups: []string{sgID}}
+	_, err := c.securityGroupService.DeleteSecurityGroups(input)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *client) CreateKeyPair(keyPairName string, publicKey string) (string, error) {
 	log.Debugf("Create KeyPair name: [%s], publicKey: [%s]", keyPairName, publicKey)
 	input := &qcservice.CreateKeyPairInput{Mode: "user", KeyPairName: keyPairName, PublicKey: publicKey}
 	output, err := c.keypairService.CreateKeyPair(input)
@@ -204,7 +322,7 @@ func (c client) CreateKeyPair(keyPairName string, publicKey string) (string, err
 	return output.KeyPairID, nil
 }
 
-func (c client) DescribeKeyPair(keyPairID string) (*qcservice.KeyPair, error) {
+func (c *client) DescribeKeyPair(keyPairID string) (*qcservice.KeyPair, error) {
 	input := &qcservice.DescribeKeyPairsInput{KeyPairs: []string{keyPairID}}
 	output, err := c.keypairService.DescribeKeyPairs(input)
 	if err != nil {
@@ -219,7 +337,7 @@ func (c client) DescribeKeyPair(keyPairID string) (*qcservice.KeyPair, error) {
 	return output.KeyPairSet[0], nil
 }
 
-func (c client) DeleteKeyPair(keyPairID string) error {
+func (c *client) DeleteKeyPair(keyPairID string) error {
 	input := &qcservice.DeleteKeyPairsInput{KeyPairs: []string{keyPairID}}
 	_, err := c.keypairService.DeleteKeyPairs(input)
 	if err != nil {

@@ -62,12 +62,12 @@ docker-machine create -d qingcloud --help
 |--qingcloud-image          	   |QINGCLOUD_IMAGE  			 |xenialx64b	|Instance image ID,default is ubuntu16.4
 |--qingcloud-login-keypair 		   |QINGCLOUD_LOGIN_KEYPAIR		 |				|Login keypair id
 |--qingcloud-ssh-keypath 		   |QINGCLOUD_SSH_KEYPATH		 |~/.ssh/id_rsa	|SSH Key for Instance
-|--qingcloud-vxnet-id 			   |QINGCLOUD_VXNET_ID			 |				|Vxnet id
+|--qingcloud-vxnet-id 			   |QINGCLOUD_VXNET_ID			 |vxnet-0		|Vxnet id
 |--qingcloud-zone       		   |QINGCLOUD_ZONE				 |pek3a 		|QingCloud zone
 
 ## Note
-1. Only support create docker machine in vpc currently.
-2. If run on your local machine, you must connect the vpc by vpn, this driver does not automatically assign public ip.
+1. If not set qingcloud-vxnet-id, will create docker machine in base network, automatically assign public ip and bind security group.
+2. If run on your local machine, and the qingcloud-vxnet-id is a vxnet in vpc, you must connect the vpc by vpn, this driver does not automatically assign public ip when using vpc.
 3. The qingcloud-ssh-keypath should match with qingcloud-login-keypair.
 
 ## Related links

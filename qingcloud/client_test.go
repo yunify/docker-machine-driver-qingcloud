@@ -7,6 +7,7 @@ import (
 	"github.com/docker/machine/libmachine/log"
 	"github.com/yunify/qingcloud-sdk-go/config"
 	sdklogger "github.com/yunify/qingcloud-sdk-go/logger"
+	"github.com/yunify/qingcloud-sdk-go/service"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -52,6 +53,20 @@ func TestClient(t *testing.T) {
 	i, err := client.RunInstance(arg)
 	if err != nil {
 		t.Fatal(err)
+	}
+	var eip *service.EIP
+	var sg *service.SecurityGroup
+	if vxNet == defaultVxNet {
+		eip, err = client.BindEIP(i.InstanceID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Printf("instance eip : %+v", eip)
+		sg, err = client.BindSecurityGroup(i.InstanceID, defaultSecurityGroupRules)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Printf("instance security group : %+v ", sg)
 	}
 	instanceID := i.InstanceID
 	fmt.Printf("run instance: %s\n", jsonString(i))
@@ -108,7 +123,18 @@ func TestClient(t *testing.T) {
 	if i5.Status != "terminated" {
 		t.Error("expect status terminated, but get ", i5.Status)
 	}
-
+	if eip != nil {
+		err = client.ReleaseEIP(eip.EIPID)
+		if err != nil {
+			t.Error(err)
+		}
+	}
+	if sg != nil {
+		err = client.DeleteSecurityGroup(sg.SecurityGroupID)
+		if err != nil {
+			t.Error(err)
+		}
+	}
 }
 
 func TestClientKeyPair(t *testing.T) {

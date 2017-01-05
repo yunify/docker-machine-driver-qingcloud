@@ -12,21 +12,42 @@ import (
 	"github.com/yunify/qingcloud-sdk-go/config"
 	qcservice "github.com/yunify/qingcloud-sdk-go/service"
 	"io/ioutil"
-	"time"
 	"os/user"
 	"path"
+	"time"
 )
 
 const (
 	defaultImage = "xenialx64b"
 	//defaultImage     = "trustysrvx64h"
-	defaultZone       = "pek3a"
-	defaultCPU        = 1
-	defaultMemory     = 1024
-	defaultOpTimeout  = 180 //second
-	dockerPort        = 2376
-	swarmPort         = 3376
+	defaultZone         = "pek3a"
+	defaultCPU          = 1
+	defaultMemory       = 1024
+	defaultOpTimeout    = 180 //second
+	defaultVxNet        = "vxnet-0"
+	defaultEIPBandwidth = 4 //MB
+	dockerPort          = 2376
+	swarmPort           = 3376
 )
+
+var defaultSecurityGroupRules = []*qcservice.SecurityGroupRule{
+	{
+		Priority: 1,
+		Protocol: "tcp",
+		Action:   "accept",
+		Val1:     "22",
+		Val2:     "",
+		Val3:     "",
+	},
+	{
+		Priority: 2,
+		Protocol: "tcp",
+		Action:   "accept",
+		Val1:     "2376",
+		Val2:     "",
+		Val3:     "",
+	},
+}
 
 type Driver struct {
 	*drivers.BaseDriver
@@ -39,6 +60,8 @@ type Driver struct {
 	LoginKeyPair    string
 	VxNet           string
 	InstanceID      string
+	EIP             *qcservice.EIP
+	SecurityGroup   *qcservice.SecurityGroup
 	client          Client
 }
 
@@ -82,6 +105,7 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			EnvVar: "QINGCLOUD_VXNET_ID",
 			Name:   "qingcloud-vxnet-id",
 			Usage:  "Vxnet id",
+			Value:  defaultVxNet,
 		},
 		mcnflag.StringFlag{
 			EnvVar: "QINGCLOUD_LOGIN_KEYPAIR",
@@ -197,7 +221,27 @@ func (d *Driver) Create() error {
 		return err
 	}
 	d.InstanceID = ins.InstanceID
+
+	if d.VxNet == defaultVxNet {
+		eip, err := client.BindEIP(d.InstanceID)
+		if err != nil {
+			return err
+		}
+		log.Infof("Bind EIP [%s] to Instance [%s]", eip.EIPAddr, d.InstanceID)
+		ins.EIP = eip
+		d.EIP = eip
+		sg, err := client.BindSecurityGroup(d.InstanceID, defaultSecurityGroupRules)
+		if err != nil {
+			return err
+		}
+		d.SecurityGroup = sg
+		log.Infof("Bind SecurityGroup [%s] to Instance [%s]", sg.SecurityGroupID, d.InstanceID)
+	}
+
 	d.IPAddress = ins.VxNets[0].PrivateIP
+	if ins.EIP != nil && ins.EIP.EIPAddr != "" {
+		d.IPAddress = ins.EIP.EIPAddr
+	}
 	d.MachineName = ins.InstanceID
 
 	log.Infof("Created Instance [%s] IPAddress: [%s]",
@@ -337,7 +381,23 @@ func (d *Driver) Kill() error {
 
 // Remove a host
 func (d *Driver) Remove() error {
-	return d.GetClient().TerminateInstance(d.InstanceID)
+	err := d.GetClient().TerminateInstance(d.InstanceID)
+	if err != nil {
+		return err
+	}
+	if d.EIP != nil {
+		err := d.GetClient().ReleaseEIP(d.EIP.EIPID)
+		if err != nil {
+			log.Errorf("Release EIP [%+v] fail, err: [%s]", d.EIP, err.Error())
+		}
+	}
+	if d.SecurityGroup != nil {
+		err := d.GetClient().DeleteSecurityGroup(d.SecurityGroup.SecurityGroupID)
+		if err != nil {
+			log.Errorf("Delete SecurityGroup [%+v] fail, err: [%s]", d.SecurityGroup, err.Error())
+		}
+	}
+	return nil
 }
 
 // Restart a host. This may just call Stop(); Start() if the provider does not
