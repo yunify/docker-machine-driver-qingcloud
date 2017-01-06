@@ -49,6 +49,7 @@ func TestClient(t *testing.T) {
 		ImageID:      defaultImage,
 		LoginKeyPair: loginKeyPair,
 		VxNet:        vxNet,
+		InstanceName: "docker-machine-test",
 	}
 	i, err := client.RunInstance(arg)
 	if err != nil {
@@ -75,7 +76,7 @@ func TestClient(t *testing.T) {
 		t.Error(err)
 	}
 	fmt.Printf("describe instance: %s\n", jsonString(i2))
-	if i2.Status != "running" {
+	if *i2.Status != "running" {
 		t.Error("expect status running, but get ", i2.Status)
 	}
 	fmt.Printf("stoping instance: %s\n", instanceID)
@@ -88,7 +89,7 @@ func TestClient(t *testing.T) {
 		t.Error(err)
 	}
 	fmt.Printf("describe instance: %s\n", jsonString(i3))
-	if i3.Status != "stopped" {
+	if *i3.Status != "stopped" {
 		t.Error("expect status stopped, but get ", i3.Status)
 	}
 	fmt.Printf("starting instance: %s \n", instanceID)
@@ -101,7 +102,7 @@ func TestClient(t *testing.T) {
 		t.Error(err)
 	}
 	fmt.Printf("describe instance: %s\n", jsonString(i4))
-	if i4.Status != "running" {
+	if *i4.Status != "running" {
 		t.Error("expect status running, but get ", i4.Status)
 	}
 
@@ -120,7 +121,7 @@ func TestClient(t *testing.T) {
 		t.Error(err)
 	}
 	fmt.Printf("describe instance: %s\n", jsonString(i5))
-	if i5.Status != "terminated" {
+	if *i5.Status != "terminated" {
 		t.Error("expect status terminated, but get ", i5.Status)
 	}
 	if eip != nil {
@@ -160,7 +161,7 @@ func TestClientKeyPair(t *testing.T) {
 		t.Fatal(err)
 	}
 	publicKeyStr := strings.TrimSpace(string(publicKey))
-	keyPairID, err := client.CreateKeyPair("test keypair", publicKeyStr)
+	keyPairID, err := client.CreateKeyPair(stringPtr("test keypair"), &publicKeyStr)
 	if err != nil {
 		t.Fatal(err)
 	}

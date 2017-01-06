@@ -1,6 +1,7 @@
 package qingcloud
 
 import (
+	"errors"
 	"fmt"
 	"github.com/docker/machine/libmachine/drivers"
 	"github.com/docker/machine/libmachine/log"
@@ -14,7 +15,6 @@ import (
 	"os/user"
 	"path"
 	"time"
-	"errors"
 )
 
 const (
@@ -32,20 +32,28 @@ const (
 
 var defaultSecurityGroupRules = []*qcservice.SecurityGroupRule{
 	{
-		Priority: 1,
-		Protocol: "tcp",
-		Action:   "accept",
-		Val1:     "22",
-		Val2:     "",
-		Val3:     "",
+		Priority: intPtr(0),
+		Protocol: stringPtr("icmp"),
+		Action:   stringPtr("accept"),
+		Val1:     stringPtr("8"), //Echo
+		Val2:     stringPtr("0"), //Echo request
+		Val3:     nil,
 	},
 	{
-		Priority: 2,
-		Protocol: "tcp",
-		Action:   "accept",
-		Val1:     "2376",
-		Val2:     "",
-		Val3:     "",
+		Priority: intPtr(1),
+		Protocol: stringPtr("tcp"),
+		Action:   stringPtr("accept"),
+		Val1:     stringPtr("22"),
+		Val2:     nil,
+		Val3:     nil,
+	},
+	{
+		Priority: intPtr(2),
+		Protocol: stringPtr("tcp"),
+		Action:   stringPtr("accept"),
+		Val1:     stringPtr("2376"),
+		Val2:     nil,
+		Val3:     nil,
 	},
 }
 
@@ -59,7 +67,7 @@ type Driver struct {
 	Memory          int
 	LoginKeyPair    string
 	VxNet           string
-	InstanceID      string
+	InstanceID      *string
 	EIP             *qcservice.EIP
 	SecurityGroup   *qcservice.SecurityGroup
 	client          Client
@@ -180,7 +188,7 @@ func (d *Driver) Config() *config.Config {
 // PreCreateCheck allows for pre-create operations to make sure a driver is ready for creation
 func (d *Driver) PreCreateCheck() error {
 	if d.LoginKeyPair != "" {
-		_, err := d.GetClient().DescribeKeyPair(d.LoginKeyPair)
+		_, err := d.GetClient().DescribeKeyPair(&d.LoginKeyPair)
 		if err != nil {
 			return err
 		}
@@ -227,7 +235,7 @@ func (d *Driver) Create() error {
 		if err != nil {
 			return err
 		}
-		log.Infof("Bind EIP [%s] to Instance [%s]", eip.EIPAddr, d.InstanceID)
+		log.Infof("Bind EIP [%s] to Instance [%s]", *eip.EIPAddr, *d.InstanceID)
 		ins.EIP = eip
 		d.EIP = eip
 		sg, err := client.BindSecurityGroup(d.InstanceID, defaultSecurityGroupRules)
@@ -235,27 +243,27 @@ func (d *Driver) Create() error {
 			return err
 		}
 		d.SecurityGroup = sg
-		log.Infof("Bind SecurityGroup [%s] to Instance [%s]", sg.SecurityGroupID, d.InstanceID)
+		log.Infof("Bind SecurityGroup [%s] to Instance [%s]", *sg.SecurityGroupID, *d.InstanceID)
 	}
 
-	d.IPAddress = ins.VxNets[0].PrivateIP
-	if ins.EIP != nil && ins.EIP.EIPAddr != "" {
-		d.IPAddress = ins.EIP.EIPAddr
+	d.IPAddress = *ins.VxNets[0].PrivateIP
+	if ins.EIP != nil && ins.EIP.EIPAddr != nil {
+		d.IPAddress = *ins.EIP.EIPAddr
 	}
-	d.MachineName = ins.InstanceID
+	d.MachineName = *d.InstanceID
 
 	log.Infof("Created Instance [%s] IPAddress: [%s]",
-		ins.InstanceID, d.IPAddress)
+		*d.InstanceID, d.IPAddress)
 	d.checkOSEnv()
 
 	return nil
 }
 
 func (d *Driver) checkOSEnv() error {
-	log.Infof("Check OS Env on Instance [%s]", d.InstanceID)
+	log.Infof("Check OS Env on Instance [%s]", *d.InstanceID)
 	sshClient, err := drivers.GetSSHClientFromDriver(d)
 	if err != nil {
-		log.Errorf("Get ssh client for [%s] error: [%s]", d.InstanceID, err.Error())
+		log.Errorf("Get ssh client for [%s] error: [%s]", *d.InstanceID, err.Error())
 		return err
 	}
 	// check access public network
@@ -267,7 +275,7 @@ func (d *Driver) checkOSEnv() error {
 		return true
 	}, (defaultOpTimeout / 10), 10*time.Second)
 	if err != nil {
-		log.Errorf("Ping get.docker.com on Instance [%s] error :[%s]", d.InstanceID, err.Error())
+		log.Errorf("Ping get.docker.com on Instance [%s] error :[%s]", *d.InstanceID, err.Error())
 		return err
 	}
 	err = mcnutils.WaitForSpecific(func() bool {
@@ -284,7 +292,7 @@ func (d *Driver) checkOSEnv() error {
 		return true
 	}, (defaultOpTimeout / 20), 20*time.Second)
 	if err != nil {
-		log.Errorf("Apt-get update on Instance [%s] error :[%s]", d.InstanceID, err.Error())
+		log.Errorf("Apt-get update on Instance [%s] error :[%s]", *d.InstanceID, err.Error())
 		return err
 	}
 
@@ -330,11 +338,11 @@ func (d *Driver) createSSHKey() error {
 	keyName := d.MachineName
 
 	log.Debugf("Creating key pair: %s", keyName)
-	keyPairID, err := d.GetClient().CreateKeyPair(keyName, string(publicKey))
+	keyPairID, err := d.GetClient().CreateKeyPair(&keyName, stringPtr(string(publicKey)))
 	if err != nil {
 		return err
 	}
-	d.LoginKeyPair = keyPairID
+	d.LoginKeyPair = *keyPairID
 	return nil
 }
 
@@ -361,7 +369,10 @@ func (d *Driver) GetState() (state.State, error) {
 	if err != nil {
 		return state.None, err
 	}
-	switch i.Status {
+	if i.Status == nil {
+		return state.None, nil
+	}
+	switch *i.Status {
 	case INSTANCE_STATUS_PENDING:
 		return state.Starting, nil
 	case INSTANCE_STATUS_RUNNING:
@@ -388,13 +399,13 @@ func (d *Driver) Remove() error {
 	if d.EIP != nil {
 		err := d.GetClient().ReleaseEIP(d.EIP.EIPID)
 		if err != nil {
-			log.Errorf("Release EIP [%+v] fail, err: [%s]", d.EIP, err.Error())
+			log.Errorf("Release EIP [%+v] fail, err: [%s]", *d.EIP, err.Error())
 		}
 	}
 	if d.SecurityGroup != nil {
 		err := d.GetClient().DeleteSecurityGroup(d.SecurityGroup.SecurityGroupID)
 		if err != nil {
-			log.Errorf("Delete SecurityGroup [%+v] fail, err: [%s]", d.SecurityGroup, err.Error())
+			log.Errorf("Delete SecurityGroup [%+v] fail, err: [%s]", *d.SecurityGroup, err.Error())
 		}
 	}
 	return nil
