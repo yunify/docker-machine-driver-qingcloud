@@ -11,10 +11,10 @@
 			"version": "v0.8.2"
 		},
 		{
-			"checksumSHA1": "1RO0sIl4IHBxfDOKqOsOAwHvTvA=",
+			"checksumSHA1": "x4Kyn6rZijqosMSqtFFsEuJG0ms=",
 			"path": "github.com/yunify/qingcloud-sdk-go",
-			"revision": "03abd16068687459f112c94466cad8b081b58bb4",
-			"revisionTime": "2017-01-05T09:34:15Z",
+			"revision": "5ee19a431c5b1bd0b7db68a100788e91b9fe1989",
+			"revisionTime": "2017-01-06T06:21:34Z",
 			"tree": true
 		}
 	],
