@@ -301,7 +301,7 @@ func (c *client) createSecurityGroup(sgName *string, rules []*qcservice.Security
 		return nil, err
 	}
 	sg := output.SecurityGroupSet[0]
-	err = c.addSecurityRule(sg.SecurityGroupID, defaultSecurityGroupRules)
+	err = c.addSecurityRule(sg.SecurityGroupID, rules)
 	if err != nil {
 		return sg, err
 	}
