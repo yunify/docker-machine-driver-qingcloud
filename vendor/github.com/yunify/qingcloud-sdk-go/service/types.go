@@ -23,19 +23,6 @@ import (
 	"github.com/yunify/qingcloud-sdk-go/request/errors"
 )
 
-type AddLoadBalancerBackendsBackend struct {
-	LoadBalancerBackendName *string `json:"loadbalancer_backend_name" name:"loadbalancer_backend_name"`
-	LoadBalancerPolicyID    *string `json:"loadbalancer_policy_id" name:"loadbalancer_policy_id"`
-	Port                    *int    `json:"port" name:"port"`
-	ResourceID              *string `json:"resource_id" name:"resource_id"`
-	Weight                  *int    `json:"weight" name:"weight"`
-}
-
-func (v *AddLoadBalancerBackendsBackend) Validate() error {
-
-	return nil
-}
-
 type Cache struct {
 	AutoBackupTime *int `json:"auto_backup_time" name:"auto_backup_time"`
 	// CacheClass's available values: 0, 1
@@ -1154,6 +1141,7 @@ type LoadBalancerBackend struct {
 	LoadBalancerBackendName *string    `json:"loadbalancer_backend_name" name:"loadbalancer_backend_name"`
 	LoadBalancerID          *string    `json:"loadbalancer_id" name:"loadbalancer_id"`
 	LoadBalancerListenerID  *string    `json:"loadbalancer_listener_id" name:"loadbalancer_listener_id"`
+	LoadBalancerPolicyID    *string    `json:"loadbalancer_policy_id" name:"loadbalancer_policy_id"`
 	Port                    *int       `json:"port" name:"port"`
 	ResourceID              *string    `json:"resource_id" name:"resource_id"`
 	Status                  *string    `json:"status" name:"status"`
@@ -1166,17 +1154,22 @@ func (v *LoadBalancerBackend) Validate() error {
 }
 
 type LoadBalancerListener struct {
-	Backends []*LoadBalancerBackend `json:"backends" name:"backends"`
+	BackendProtocol *string                `json:"backend_protocol" name:"backend_protocol"`
+	Backends        []*LoadBalancerBackend `json:"backends" name:"backends"`
 	// BalanceMode's available values: roundrobin, leastconn, source
-	BalanceMode              *string                         `json:"balance_mode" name:"balance_mode"`
-	CreateTime               *time.Time                      `json:"create_time" name:"create_time" format:"ISO 8601"`
-	Forwardfor               *int                            `json:"forwardfor" name:"forwardfor"`
-	HealthyCheckMethod       *string                         `json:"healthy_check_method" name:"healthy_check_method"`
-	HealthyCheckOption       *string                         `json:"healthy_check_option" name:"healthy_check_option" default:"10|5|2|5"`
-	Listeners                []*LoadBalancerListenerListener `json:"listeners" name:"listeners"`
-	LoadBalancerListenerID   *string                         `json:"loadbalancer_listener_id" name:"loadbalancer_listener_id"`
-	LoadBalancerListenerName *string                         `json:"loadbalancer_listener_name" name:"loadbalancer_listener_name"`
-	SessionSticky            *string                         `json:"session_sticky" name:"session_sticky"`
+	BalanceMode              *string    `json:"balance_mode" name:"balance_mode"`
+	CreateTime               *time.Time `json:"create_time" name:"create_time" format:"ISO 8601"`
+	Forwardfor               *int       `json:"forwardfor" name:"forwardfor"`
+	HealthyCheckMethod       *string    `json:"healthy_check_method" name:"healthy_check_method"`
+	HealthyCheckOption       *string    `json:"healthy_check_option" name:"healthy_check_option" default:"10|5|2|5"`
+	ListenerOption           *int       `json:"listener_option" name:"listener_option"`
+	ListenerPort             *int       `json:"listener_port" name:"listener_port"`
+	ListenerProtocol         *string    `json:"listener_protocol" name:"listener_protocol"`
+	LoadBalancerID           *string    `json:"loadbalancer_id" name:"loadbalancer_id"`
+	LoadBalancerListenerID   *string    `json:"loadbalancer_listener_id" name:"loadbalancer_listener_id"`
+	LoadBalancerListenerName *string    `json:"loadbalancer_listener_name" name:"loadbalancer_listener_name"`
+	ServerCertificateID      *string    `json:"server_certificate_id" name:"server_certificate_id"`
+	SessionSticky            *string    `json:"session_sticky" name:"session_sticky"`
 }
 
 func (v *LoadBalancerListener) Validate() error {
@@ -1208,23 +1201,6 @@ func (v *LoadBalancerListener) Validate() error {
 			}
 		}
 	}
-
-	if len(v.Listeners) > 0 {
-		for _, property := range v.Listeners {
-			if err := property.Validate(); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-type LoadBalancerListenerListener struct {
-	ListenerOption *int `json:"listener_option" name:"listener_option"`
-}
-
-func (v *LoadBalancerListenerListener) Validate() error {
 
 	return nil
 }
@@ -1486,6 +1462,54 @@ type MongoPrivateIP struct {
 }
 
 func (v *MongoPrivateIP) Validate() error {
+
+	return nil
+}
+
+type NIC struct {
+	CreateTime *time.Time `json:"create_time" name:"create_time" format:"ISO 8601"`
+	InstanceID *string    `json:"instance_id" name:"instance_id"`
+	NICID      *string    `json:"nic_id" name:"nic_id"`
+	NICName    *string    `json:"nic_name" name:"nic_name"`
+	Role       *int       `json:"role" name:"role"`
+	Sequence   *int       `json:"sequence" name:"sequence"`
+	// Status's available values: available, in-use
+	Status     *string    `json:"status" name:"status"`
+	StatusTime *time.Time `json:"status_time" name:"status_time" format:"ISO 8601"`
+	VxNetID    *string    `json:"vxnet_id" name:"vxnet_id"`
+}
+
+func (v *NIC) Validate() error {
+
+	if v.Status != nil {
+		statusValidValues := []string{"available", "in-use"}
+		statusParameterValue := fmt.Sprint(*v.Status)
+
+		statusIsValid := false
+		for _, value := range statusValidValues {
+			if value == statusParameterValue {
+				statusIsValid = true
+			}
+		}
+
+		if !statusIsValid {
+			return errors.ParameterValueNotAllowedError{
+				ParameterName:  "Status",
+				ParameterValue: statusParameterValue,
+				AllowedValues:  statusValidValues,
+			}
+		}
+	}
+
+	return nil
+}
+
+type NICIP struct {
+	NICID     *string `json:"nic_id" name:"nic_id"`
+	PrivateIP *string `json:"private_ip" name:"private_ip"`
+}
+
+func (v *NICIP) Validate() error {
 
 	return nil
 }
@@ -1975,7 +1999,7 @@ type RouterVxNet struct {
 	CreateTime *time.Time `json:"create_time" name:"create_time" format:"ISO 8601"`
 	DYNIPEnd   *string    `json:"dyn_ip_end" name:"dyn_ip_end"`
 	DYNIPStart *string    `json:"dyn_ip_start" name:"dyn_ip_start"`
-	Features   *string    `json:"features" name:"features"`
+	Features   *int       `json:"features" name:"features"`
 	IPNetwork  *string    `json:"ip_network" name:"ip_network"`
 	ManagerIP  *string    `json:"manager_ip" name:"manager_ip"`
 	RouterID   *string    `json:"router_id" name:"router_id"`

@@ -144,6 +144,7 @@ func TestClientKeyPair(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	sdklogger.SetLevel("debug")
 	//config.Services.IaaS.Host = "api.test.com"
 	//config.Services.IaaS.Protocol = "http"
 	//config.Services.IaaS.Port = 8880
@@ -169,7 +170,7 @@ func TestClientKeyPair(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	println(keyPair.PubKey)
+	println(*keyPair.PubKey)
 	err = client.DeleteKeyPair(keyPairID)
 	if err != nil {
 		t.Fatal(err)

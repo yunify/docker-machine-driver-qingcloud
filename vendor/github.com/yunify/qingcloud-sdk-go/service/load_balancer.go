@@ -74,8 +74,8 @@ func (s *LoadBalancerService) AddLoadBalancerBackends(i *AddLoadBalancerBackends
 }
 
 type AddLoadBalancerBackendsInput struct {
-	Backends             []*AddLoadBalancerBackendsBackend `json:"backends" name:"backends" location:"params"`                           // Required
-	LoadBalancerListener *string                           `json:"loadbalancer_listener" name:"loadbalancer_listener" location:"params"` // Required
+	Backends             []*LoadBalancerBackend `json:"backends" name:"backends" location:"params"`                           // Required
+	LoadBalancerListener *string                `json:"loadbalancer_listener" name:"loadbalancer_listener" location:"params"` // Required
 }
 
 func (v *AddLoadBalancerBackendsInput) Validate() error {
@@ -1758,12 +1758,12 @@ func (s *LoadBalancerService) UpdateLoadBalancers(i *UpdateLoadBalancersInput) (
 }
 
 type UpdateLoadBalancersInput struct {
-	LoadBalancers *string `json:"loadbalancers" name:"loadbalancers" location:"params"` // Required
+	LoadBalancers []*string `json:"loadbalancers" name:"loadbalancers" location:"params"` // Required
 }
 
 func (v *UpdateLoadBalancersInput) Validate() error {
 
-	if v.LoadBalancers == nil {
+	if len(v.LoadBalancers) == 0 {
 		return errors.ParameterRequiredError{
 			ParameterName: "LoadBalancers",
 			ParentName:    "UpdateLoadBalancersInput",
@@ -1776,6 +1776,6 @@ func (v *UpdateLoadBalancersInput) Validate() error {
 type UpdateLoadBalancersOutput struct {
 	Message *string `json:"message" name:"message"`
 	Action  *string `json:"action" name:"action" location:"elements"`
-	JobID   *int    `json:"job_id" name:"job_id" location:"elements"`
+	JobID   *string `json:"job_id" name:"job_id" location:"elements"`
 	RetCode *int    `json:"ret_code" name:"ret_code" location:"elements"`
 }
